@@ -1,0 +1,167 @@
+
+
+
+Bohot hi shandaar architecture use kiya gaya hai is bot me! Is bot ka system "Hybrid Architecture" par kaam karta hai. 
+
+Iska matlab:
+🧠 Hugging Face (Brain): Bot ko online rakhega, messages read karega, aur chote kaam (jaise Softsub / Extract) karega.
+💪 GitHub Actions (Muscle): Jo heavy kaam hain (Hardsub / Compress) jisme CPU/RAM zyada lagta hai, bot automatically wo kaam GitHub ko bhej dega.
+
+Aapko apna code dono jagah (Hugging Face aur GitHub) par thoda-thoda baantna hoga. Yahan A to Z pura process hai:
+
+---
+
+### 🔑 PRE-REQUISITES (Pehle Ye 3 Cheezein Jama Karein)
+
+1. Telegram Bot Token: `@BotFather` se milega.
+2. Telegram API ID & API HASH: `my.telegram.org` par jaakar App banayein aur copy karein.
+3. GitHub Token (Personal Access Token):
+    GitHub par login karein.
+    Top-Right apni profile photo par click karein -> Settings.
+    Left menu me sabse neeche scroll karein -> Developer settings.
+    Personal access tokens -> Tokens (classic) par click karein.
+    "Generate new token (classic)" par click karein.
+    Naam likhein (jaise: `BotToken`), Expiration `No expiration` set karein.
+    Scopes (Checkboxes) me sirf in 2 par tick lagayein: `repo` (pura) aur `workflow`.
+    Sabse neeche Generate Token dabayein aur `ghp_xxxxxxxx` wale token ko copy kar lein. (Ye dobara nahi dikhega).
+
+---
+
+### 📁 STEP 1: KONS FIELS KAHAN JAYENGI?
+
+A. GitHub Repository (Muscle Server)
+1. `encoder.py`
+2. `requirements.txt`
+3. `.github/workflows/encode.yml` (Ye file maine neeche banakar di hai, kyuki aapke code me ye miss thi)
+
+B. Hugging Face Space (Brain Server)
+1. `bot.py`
+2. `bot_utils.py`
+3. `config.py`
+4. `database.py`
+5. `Dockerfile`
+6. `requirements.txt`
+7. `start.sh` (Ye file bhi maine neeche banakar di hai)
+8. `start_img.jpg` (Koi bhi anime/bot image is naam se save karke dal dein)
+
+---
+
+### 🛠️ STEP 2: GITHUB SETUP PROCESS (A to Z)
+
+1. GitHub par ek New Repository banayein. (Visibility: Private rakhein taaki koi aapka code na churaye). Repo ka naam yaad rakhein (e.g., `Rahul/Encoding-Bot`).
+2. Is repo me ye 3 files upload karein:
+
+📄 1. `encoder.py` (Aapke paas already hai)
+📄 2. `requirements.txt` (Aapke paas already hai)
+📄 3. `.github/workflows/encode.yml` (Ye nayi file banayein)
+GitHub repo me `Add file` -> `Create new file` karein. Naam likhein `.github/workflows/encode.yml` aur ye code dalein:
+
+```yaml
+name: Encode Task
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_type:
+        required: true
+      video_id:
+        required: true
+      sub_id:
+        required: true
+      rename:
+        required: true
+      chat_id:
+        required: true
+      dump_id:
+        required: true
+      thread_id:
+        required: true
+
+jobs:
+  process-video:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Encoder Worker
+        env:
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          TASK_TYPE: ${{ github.event.inputs.task_type }}
+          VIDEO_ID: ${{ github.event.inputs.video_id }}
+          SUB_ID: ${{ github.event.inputs.sub_id }}
+          RENAME: ${{ github.event.inputs.rename }}
+          CHAT_ID: ${{ github.event.inputs.chat_id }}
+          DUMP_ID: ${{ github.event.inputs.dump_id }}
+          THREAD_ID: ${{ github.event.inputs.thread_id }}
+        run: python encoder.py
+```
+
+3. GitHub Secrets Set Karein:
+    Repo ki Settings me jayein -> Left me Secrets and variables -> Actions.
+    New repository secret par click karein aur ye 3 secrets add karein:
+      Name: `API_ID` | Secret: Apna API ID dalein
+      Name: `API_HASH` | Secret: Apna API Hash dalein
+      Name: `BOT_TOKEN` | Secret: Apna Bot Token dalein
+
+---
+
+### 🤗 STEP 3: HUGGING FACE SETUP PROCESS (A to Z)
+
+1. Hugging Face par account banayein aur Spaces me jakar Create new Space karein.
+2. Space Name kuch bhi rakhein. License blank chhod dein.
+3. Space SDK: `Docker` select karein -> `Blank` select karein.
+4. Visibility: Private select karein. Aur Space create kar lein.
+5. Files tab me jakar apna code upload karein. Dhyan rahe, Hugging face ko ek `start.sh` file chahiye.
+
+📄 Create `start.sh` file in Hugging Face:
+```bash
+#!/bin/bash
+# Local Telegram Bot API server ko start karna (Files > 50MB support ke liye)
+telegram-bot-api --api-id=$API_ID --api-hash=$API_HASH --local -d /data &
+# Bot ko start karna
+python3 bot.py
+```
+
+6. Hugging Face Variables (Secrets) Set Karein:
+    Space ki Settings tab me jayein.
+    Neeche scroll karein Variables and secrets section me.
+    New Secret par click karein aur ye list add karein:
+
+| Name | Value (Example) | Kya hai ye? |
+| :--- | :--- | :--- |
+| `BOT_TOKEN` | `123456:ABCDefgh...` | Aapka Telegram Bot Token |
+| `ADMIN_ID` | `123456789` | Aapki khudki Telegram User ID |
+| `API_ID` | `1234567` | Telegram API ID |
+| `API_HASH` | `abcdef123456...` | Telegram API Hash |
+| `GITHUB_TOKEN` | `ghp_xxxxxxxx...` | Jo token aapne Step 1 me banaya tha |
+| `REPO_NAME` | `AapkaUsername/RepoName` | Aapki GitHub repo ka naam (e.g., `Rahul/EncodeBot`) |
+
+(Optional Variables for HF: `AUTH_USERS` aur `AUTH_CHATS` me comma lagakar dusre logo ki IDs daal sakte hain agar unhe access dena hai).
+
+---
+
+### 🚀 STEP 4: DEPLOY & TEST
+
+1. Jaise hi aap Hugging Face par saare Variables set kar lenge aur files upload kar denge, Hugging Face khud ba khud Building start kar dega.
+2. Ek baar Build ho jaye aur status Running likha aa jaye, toh aapka bot zinda ho gaya hai!
+3. Telegram par jayein aur bot ko `/start` bhejein.
+4. Ek video file bhejein, Subtitle bhejein aur Cloud (Hardsub) try karein.
+5. Bot turant GitHub Actions ko trigger karega. (Aap apne GitHub repo ke Actions tab me jakar live process dekh sakte hain ki server kaise video encode kar raha hai).
+
+### 💡 Pro Tips for Hugging Face Free Tier:
+ Hugging Face free tier 48 hours me ek baar sleep ho jata hai. Agar bot reply na kare, toh bas ek baar Hugging Face ki website khol kar Space ko Restart kar dijiye.
+ Hardsub aur compress ka load GitHub uthayega (jisme har mahine 2000 minutes free milte hain private repo ke liye), aur Softsub Hugging face apne upar lega jisse system bilkul smoothly chalega!
